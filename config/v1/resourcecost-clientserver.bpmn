@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_ClientServer"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="ClientServerProcess" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1" name="Inizio richieste">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:task id="HttpRequest" name="Richiesta HTTP">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="Gateway_HTML_or_IMG" default="Flow_3_HTML">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3_HTML</bpmn:outgoing>
+      <bpmn:outgoing>Flow_3_IMG</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:task id="SendHTML" name="Invio risposta HTML">
+      <bpmn:incoming>Flow_3_HTML</bpmn:incoming>
+      <bpmn:outgoing>Flow_4_HTML</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="SendIMG" name="Invio risposta immagine">
+      <bpmn:incoming>Flow_3_IMG</bpmn:incoming>
+      <bpmn:outgoing>Flow_4_IMG</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="MediaRequest" name="Richiesta media">
+      <bpmn:incoming>Flow_4_HTML</bpmn:incoming>
+      <bpmn:incoming>Flow_4_IMG</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:task id="ResponseProcessing" name="Elaborazione risposta">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:task>
+
+    <bpmn:endEvent id="EndEvent_1" name="Fine">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="HttpRequest"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="HttpRequest" targetRef="Gateway_HTML_or_IMG"/>
+    <bpmn:sequenceFlow id="Flow_3_HTML" sourceRef="Gateway_HTML_or_IMG" targetRef="SendHTML" name="HTML"/>
+    <bpmn:sequenceFlow id="Flow_3_IMG" sourceRef="Gateway_HTML_or_IMG" targetRef="SendIMG" name="IMG"/>
+    <bpmn:sequenceFlow id="Flow_4_HTML" sourceRef="SendHTML" targetRef="MediaRequest"/>
+    <bpmn:sequenceFlow id="Flow_4_IMG" sourceRef="SendIMG" targetRef="MediaRequest"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="MediaRequest" targetRef="ResponseProcessing"/>
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="ResponseProcessing" targetRef="EndEvent_1"/>
+  </bpmn:process>
+</bpmn:definitions>

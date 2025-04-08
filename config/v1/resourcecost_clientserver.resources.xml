@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bsim:definitions xmlns:bsim="http://bsim.hpi.uni-potsdam.de/scylla/simModel"
+                  targetNamespace="http://www.hpi.de">
+  <bsim:simulationConfiguration
+      id="client_server_sim"
+      processRef="ClientServerProcess"
+      processInstances="20"
+      randomSeed="42"
+      startDateTime="2025-04-01T08:00:00+01:00[Europe/Rome]">
+
+    <!-- Arrivi con frequenza esponenziale: ogni 1.0 secondi -->
+    <bsim:startEvent id="StartEvent_ClientRequest">
+      <bsim:arrivalRate timeUnit="SECONDS">
+        <bsim:exponentialDistribution>
+          <bsim:mean>1.0</bsim:mean>
+        </bsim:exponentialDistribution>
+      </bsim:arrivalRate>
+    </bsim:startEvent>
+
+    <!-- Attività: richiesta HTTP -->
+    <bsim:Task id="ClientHttpRequest">
+      <bsim:resources>
+        <bsim:resource id="client" amount="1"/>
+      </bsim:resources>
+      <bsim:pluginConfigs>
+        <bsim:pluginConfig plugin="resourceCost">
+          <bsim:parameter key="numInstructions" value="2000"/>
+        </bsim:pluginConfig>
+      </bsim:pluginConfigs>
+    </bsim:Task>
+
+    <!-- Attività: richiesta media -->
+    <bsim:Task id="ClientMediaRequest">
+      <bsim:resources>
+        <bsim:resource id="client" amount="1"/>
+      </bsim:resources>
+      <bsim:pluginConfigs>
+        <bsim:pluginConfig plugin="resourceCost">
+          <bsim:parameter key="numInstructions" value="5000"/>
+        </bsim:pluginConfig>
+      </bsim:pluginConfigs>
+    </bsim:Task>
+
+    <!-- Attività: elaborazione risposta -->
+    <bsim:Task id="ClientProcessResponse">
+      <bsim:resources>
+        <bsim:resource id="client" amount="1"/>
+      </bsim:resources>
+      <bsim:pluginConfigs>
+        <bsim:pluginConfig plugin="resourceCost">
+          <bsim:parameter key="numInstructions" value="3000"/>
+        </bsim:pluginConfig>
+      </bsim:pluginConfigs>
+    </bsim:Task>
+
+    <!-- Attività: risposta HTML -->
+    <bsim:Task id="ServerSendHtml">
+      <bsim:resources>
+        <bsim:resource id="server" amount="1"/>
+      </bsim:resources>
+      <bsim:pluginConfigs>
+        <bsim:pluginConfig plugin="resourceCost">
+          <bsim:parameter key="numInstructions" value="4000"/>
+        </bsim:pluginConfig>
+      </bsim:pluginConfigs>
+    </bsim:Task>
+
+    <!-- Attività: risposta immagine -->
+    <bsim:Task id="ServerSendImage">
+      <bsim:resources>
+        <bsim:resource id="server" amount="1"/>
+      </bsim:resources>
+      <bsim:pluginConfigs>
+        <bsim:pluginConfig plugin="resourceCost">
+          <bsim:parameter key="numInstructions" value="10000"/>
+        </bsim:pluginConfig>
+      </bsim:pluginConfigs>
+    </bsim:Task>
+
+  </bsim:simulationConfiguration>
+</bsim:definitions>

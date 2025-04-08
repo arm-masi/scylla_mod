@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bsim:definitions xmlns:bsim="http://bsim.hpi.uni-potsdam.de/scylla/simModel"
+                  targetNamespace="http://www.hpi.de">
+  <bsim:simulationConfiguration id="clientserver-config"
+                                processRef="clientserver"
+                                processInstances="50"
+                                startDateTime="2025-01-01T00:00:00+01:00[Europe/Rome]"
+                                randomSeed="123">
+
+    <bsim:startEvent id="StartEvent_1">
+      <bsim:arrivalRate timeUnit="SECONDS">
+        <bsim:exponentialDistribution>
+          <bsim:mean>1.0</bsim:mean>
+        </bsim:exponentialDistribution>
+      </bsim:arrivalRate>
+    </bsim:startEvent>
+
+    <bsim:Task id="Client_HTTP_Request">
+      <bsim:plugin>resourceCost</bsim:plugin>
+      <bsim:resources>
+        <bsim:resource id="client" amount="1"/>
+      </bsim:resources>
+    </bsim:Task>
+
+    <bsim:Task id="Client_IMG_Request">
+      <bsim:plugin>resourceCost</bsim:plugin>
+      <bsim:resources>
+        <bsim:resource id="client" amount="1"/>
+      </bsim:resources>
+    </bsim:Task>
+
+    <bsim:Task id="Server_Send_HTML">
+      <bsim:plugin>resourceCost</bsim:plugin>
+      <bsim:resources>
+        <bsim:resource id="server" amount="1"/>
+      </bsim:resources>
+    </bsim:Task>
+
+    <bsim:Task id="Server_Send_IMG">
+      <bsim:plugin>resourceCost</bsim:plugin>
+      <bsim:resources>
+        <bsim:resource id="server" amount="1"/>
+      </bsim:resources>
+    </bsim:Task>
+
+    <bsim:Task id="Client_Process_Response">
+      <bsim:plugin>resourceCost</bsim:plugin>
+      <bsim:resources>
+        <bsim:resource id="client" amount="1"/>
+      </bsim:resources>
+    </bsim:Task>
+
+  </bsim:simulationConfiguration>
+</bsim:definitions>

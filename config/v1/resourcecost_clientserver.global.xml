@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bsim:globalConfiguration xmlns:bsim="http://bsim.hpi.uni-potsdam.de/scylla/simModel"
+                          targetNamespace="http://www.hpi.de"
+                          id="client_server_global">
+  <bsim:resourceData>
+
+    <!-- Server -->
+    <bsim:dynamicResource id="server" defaultQuantity="1" defaultCost="2000" defaultTimeUnit="SECONDS" defaultTimetableId="always">
+      <bsim:instance name="server-node-1" timetableId="always"/>
+    </bsim:dynamicResource>
+
+    <!-- Client -->
+    <bsim:dynamicResource id="client" defaultQuantity="50" defaultCost="1000" defaultTimeUnit="SECONDS" defaultTimetableId="always">
+      <bsim:instance name="client-node-1" timetableId="always"/>
+    </bsim:dynamicResource>
+
+  </bsim:resourceData>
+
+  <bsim:zoneOffset>+01:00</bsim:zoneOffset>
+
+  <bsim:timetables>
+    <bsim:timetable id="always">
+      <bsim:timetableItem from="MONDAY" to="SUNDAY" beginTime="00:00" endTime="23:59:59"/>
+    </bsim:timetable>
+  </bsim:timetables>
+
+  <bsim:randomSeed>42</bsim:randomSeed>
+</bsim:globalConfiguration>
