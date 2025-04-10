@@ -35,6 +35,17 @@ public class TaskTerminateEvent extends TaskEvent {
         super(owner, source, simulationTimeOfSource, desmojObjects, processInstance, nodeId);
     }
 
+    private Double customDuration = null;
+
+    public void setCustomDuration(Double duration) {
+        this.customDuration = duration;
+    }
+
+    public Double getCustomDuration() {
+        return this.customDuration;
+    }
+
+
     @Override
     public void eventRoutine(ProcessInstance processInstance) throws SuspendExecution {
         super.eventRoutine(processInstance);
@@ -130,6 +141,8 @@ public class TaskTerminateEvent extends TaskEvent {
             String resourceName = res.getResourceType() + "_" + res.getId();
             resources.add(resourceName);
         }
+        System.out.println("📌 TerminateEvent: durata effettiva (customDuration) = " + customDuration);
+
         ProcessNodeTransitionType transition = ProcessNodeTransitionType.TERMINATE;
 
         SimulationModel model = (SimulationModel) getModel();

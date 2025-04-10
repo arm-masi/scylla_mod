@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definition"
+                  targetNamespace="http://bpt.hpi.uni-potsdam.de/scylla">
+
+  <bpmn:process id="clientserver" isExecutable="true">
+    <bpmn:startEvent id="StartEvent"/>
+    
+    <bpmn:sequenceFlow id="flow1" sourceRef="StartEvent" targetRef="ClientTask"/>
+    <bpmn:task id="ClientTask" name="ClientTask">
+      <bpmn:extensionElements>
+        <resourceCost:numInstructions xmlns:resourceCost="http://bpt.hpi.uni-potsdam.de/scylla/plugin/resourceCost">100000</resourceCost:numInstructions>
+      </bpmn:extensionElements>
+    </bpmn:task>
+    
+    <bpmn:sequenceFlow id="flow2" sourceRef="ClientTask" targetRef="ServerTask"/>
+    <bpmn:task id="ServerTask" name="ServerTask">
+      <bpmn:extensionElements>
+        <resourceCost:numInstructions xmlns:resourceCost="http://bpt.hpi.uni-potsdam.de/scylla/plugin/resourceCost">200000</resourceCost:numInstructions>
+      </bpmn:extensionElements>
+    </bpmn:task>
+    
+    <bpmn:sequenceFlow id="flow3" sourceRef="ServerTask" targetRef="EndEvent"/>
+    <bpmn:endEvent id="EndEvent"/>
+  </bpmn:process>
+</bpmn:definitions>

@@ -34,17 +34,17 @@ public class ResourceCostBasedTaskDurationPlugin extends TaskBeginEventPluggable
             double cpuSpeed = 1000.0;
             if (tuple != null && !tuple.getResourceObjects().isEmpty()) {
                 ResourceObject res = tuple.getResourceObjects().iterator().next();
-                cpuSpeed = res.getCost();
+                cpuSpeed = res.getCost(); // usa "cost" come cpuSpeed
             }
 
             double duration = numInstructions / cpuSpeed;
-            duration = Math.max(duration, 1.0); // evitiamo durate troppo basse o nulle
+            duration = Math.max(duration, 1.0); // minimo 1 secondo
 
-            // Imposta la durata personalizzata, sarà usata da TaskBeginEvent
-            event.setCustomDuration(duration);
-
-            System.out.println("✅ [resourceCost] Plugin attivato su attività nodeId=" + nodeId);
+            System.out.println("✅ [resourceCost] Plugin attivato per attività nodeId=" + nodeId);
             System.out.println("⏱ [resourceCost] Durata calcolata: " + duration + " sec (istruzioni: " + numInstructions + ", cpuSpeed: " + cpuSpeed + ")");
+
+            // Isola l'impostazione della durata usando un metodo dedicato
+            event.setCustomDuration(duration);
 
         } catch (Exception e) {
             System.err.println("❌ [resourceCost] Errore durante il calcolo della durata:");

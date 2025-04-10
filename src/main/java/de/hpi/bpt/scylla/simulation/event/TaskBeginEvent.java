@@ -20,6 +20,7 @@ import desmoj.core.simulator.TimeSpan;
 
 public class TaskBeginEvent extends TaskEvent {
 
+    // ✅ campo opzionale per durate personalizzate (plugin)
     private Double customDuration = null;
 
     public TaskBeginEvent(Model owner, String source, TimeInstant simulationTimeOfSource,
@@ -46,12 +47,23 @@ public class TaskBeginEvent extends TaskEvent {
         if (!handleTaskTypeLogging(processModel)) return;
 
         try {
-            double duration = determineTaskDuration(processInstance);
+            // ✅ Prima esegui i plugin (se presenti)
+            TaskBeginEventPluggable.runPlugins(this, processInstance);
+
+            // ✅ Calcola durata base da distribuzione
+            double baseDuration = pSimComponents.getDistributionSample(nodeId);
+            // ✅ Se il plugin ha impostato una durata personalizzata, usala
+            double effectiveDuration = (customDuration != null) ? customDuration : baseDuration;
             TimeUnit unit = pSimComponents.getDistributionTimeUnit(nodeId);
 
-            ScyllaEvent event = new TaskTerminateEvent(model, source, currentSimulationTime, pSimComponents,
+            TaskTerminateEvent terminateEvent = new TaskTerminateEvent(model, source, currentSimulationTime, pSimComponents,
                     processInstance, nodeId);
-            TimeSpan timeSpan = new TimeSpan(duration, unit);
+            terminateEvent.setCustomDuration(effectiveDuration); // solo per logging/analisi
+
+            System.out.println("✅ [TaskBeginEvent] durata effettiva = " + effectiveDuration + " sec, hash=" + terminateEvent.hashCode());
+
+            ScyllaEvent event = terminateEvent;
+            TimeSpan timeSpan = new TimeSpan(effectiveDuration, unit);
 
             ResourceObjectTuple tuple = processInstance.getAssignedResources().get(source);
             TimeInstant nextEventTime = DateTimeUtils.getTaskTerminationTime(timeSpan, currentSimulationTime, tuple, event);
@@ -61,7 +73,6 @@ public class TaskBeginEvent extends TaskEvent {
             nextEventMap.put(index, event);
             timeSpanToNextEventMap.put(index, timeSpan);
 
-            TaskBeginEventPluggable.runPlugins(this, processInstance);
             scheduleNextEvents();
 
         } catch (ScyllaRuntimeException e) {
@@ -72,17 +83,7 @@ public class TaskBeginEvent extends TaskEvent {
     }
 
     /**
-     * Determine the effective duration for the task, using custom value if available.
-     */
-    private double determineTaskDuration(ProcessInstance processInstance) {
-        if (customDuration != null) {
-            return customDuration;
-        }
-        return pSimComponents.getDistributionSample(nodeId);
-    }
-
-    /**
-     * Utility method to handle logging and skip if unsupported task type.
+     * Logging iniziale del tipo di task.
      */
     private boolean handleTaskTypeLogging(ProcessModel processModel) {
         TaskType type = processModel.getTasks().get(nodeId);

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<simulationConfiguration>
+  <processModel>client_server.bpmn</processModel>
+  <simulationStart>2024-01-01T00:00:00</simulationStart>
+  <simulationEnd>2024-01-01T00:30:00</simulationEnd>
+  <numberOfInstances>30</numberOfInstances>
+  <timeUnit>SECONDS</timeUnit>
+
+  <plugins>
+    <plugin name="resourceCost"/>
+  </plugins>
+
+  <resources>client_server.resources.xml</resources>
+</simulationConfiguration>
