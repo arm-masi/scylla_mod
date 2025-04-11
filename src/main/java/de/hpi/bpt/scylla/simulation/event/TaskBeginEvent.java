@@ -20,7 +20,7 @@ import desmoj.core.simulator.TimeSpan;
 
 public class TaskBeginEvent extends TaskEvent {
 
-    // ✅ campo opzionale per durate personalizzate (plugin)
+    // ✅ Durata personalizzata, calcolata dai plugin
     private Double customDuration = null;
 
     public TaskBeginEvent(Model owner, String source, TimeInstant simulationTimeOfSource,
@@ -44,46 +44,46 @@ public class TaskBeginEvent extends TaskEvent {
         TimeInstant currentSimulationTime = model.presentTime();
         ProcessModel processModel = processInstance.getProcessModel();
 
+        // ✅ Log del tipo di task (SERVICE, SEND, ecc.)
         if (!handleTaskTypeLogging(processModel)) return;
 
         try {
-            // ✅ Prima esegui i plugin (se presenti)
+            // ✅ Esegui plugin associati (es. resourceCost)
             TaskBeginEventPluggable.runPlugins(this, processInstance);
 
-            // ✅ Calcola durata base da distribuzione
+            // ✅ Calcolo durata
             double baseDuration = pSimComponents.getDistributionSample(nodeId);
-            // ✅ Se il plugin ha impostato una durata personalizzata, usala
             double effectiveDuration = (customDuration != null) ? customDuration : baseDuration;
             TimeUnit unit = pSimComponents.getDistributionTimeUnit(nodeId);
 
             TaskTerminateEvent terminateEvent = new TaskTerminateEvent(model, source, currentSimulationTime, pSimComponents,
                     processInstance, nodeId);
-            terminateEvent.setCustomDuration(effectiveDuration); // solo per logging/analisi
+            terminateEvent.setCustomDuration(effectiveDuration); // utile per log/debug
 
-            System.out.println("✅ [TaskBeginEvent] durata effettiva = " + effectiveDuration + " sec, hash=" + terminateEvent.hashCode());
+            System.out.printf("✅ [TaskBeginEvent] durata effettiva = %.3f sec, task = %s%n", effectiveDuration, displayName);
 
-            ScyllaEvent event = terminateEvent;
+            // ✅ Programma l’evento di terminazione
             TimeSpan timeSpan = new TimeSpan(effectiveDuration, unit);
-
             ResourceObjectTuple tuple = processInstance.getAssignedResources().get(source);
-            TimeInstant nextEventTime = DateTimeUtils.getTaskTerminationTime(timeSpan, currentSimulationTime, tuple, event);
+
+            TimeInstant nextEventTime = DateTimeUtils.getTaskTerminationTime(timeSpan, currentSimulationTime, tuple, terminateEvent);
             timeSpan = new TimeSpan(nextEventTime.getTimeAsDouble() - currentSimulationTime.getTimeAsDouble());
 
             int index = getNewEventIndex();
-            nextEventMap.put(index, event);
+            nextEventMap.put(index, terminateEvent);
             timeSpanToNextEventMap.put(index, timeSpan);
 
             scheduleNextEvents();
 
         } catch (ScyllaRuntimeException e) {
-            System.err.println(e.getMessage());
+            System.err.println("❌ Errore in TaskBeginEvent (nodeId=" + nodeId + "): " + e.getMessage());
             e.printStackTrace();
             SimulationUtils.abort(model, processInstance, nodeId, traceIsOn());
         }
     }
 
     /**
-     * Logging iniziale del tipo di task.
+     * Logging iniziale del tipo di task (SERVICE, SEND, USER, ecc.)
      */
     private boolean handleTaskTypeLogging(ProcessModel processModel) {
         TaskType type = processModel.getTasks().get(nodeId);
@@ -109,8 +109,8 @@ public class TaskBeginEvent extends TaskEvent {
         long timestamp = Math.round(getModel().presentTime().getTimeRounded(DateTimeUtils.getReferenceTimeUnit()));
         String taskName = displayName;
         Set<String> resources = new HashSet<>();
-        Set<ResourceObject> resourceObjects = processInstance.getAssignedResources().get(source).getResourceObjects();
 
+        Set<ResourceObject> resourceObjects = processInstance.getAssignedResources().get(source).getResourceObjects();
         for (ResourceObject res : resourceObjects) {
             resources.add(res.getResourceType() + "_" + res.getId());
         }

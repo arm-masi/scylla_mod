@@ -50,6 +50,25 @@ public class ProcessNodeInfo {
         this.id = id;
     }
     
+    /**
+     * Verifica se il timestamp è valido
+     * @return true se il timestamp è valido, false altrimenti
+     */
+    public boolean hasValidTimestamp() {
+        return timestamp >= 0;
+    }
+    
+    /**
+     * Calcola la durata tra questo nodo e un altro nodo in modo sicuro
+     * @param other il nodo con cui calcolare la durata
+     * @return la durata calcolata o 0 se non è possibile calcolarla
+     */
+    public long calculateDurationSafely(ProcessNodeInfo other) {
+        if (other == null || !hasValidTimestamp() || !other.hasValidTimestamp()) {
+            return 0; // Ritorna 0 invece di NaN in caso di timestamp non validi
+        }
+        return Math.abs(this.timestamp - other.timestamp);
+    }
 
     public String getProcessScopeNodeId() {
         return processScopeNodeId;

@@ -39,6 +39,7 @@ import de.hpi.bpt.scylla.plugin_type.parser.ProcessModelParserPluggable;
 import de.hpi.bpt.scylla.plugin_type.parser.SimulationConfigurationParserPluggable;
 import de.hpi.bpt.scylla.simulation.SimulationModel;
 import de.hpi.bpt.scylla.simulation.utils.DateTimeUtils;
+import de.hpi.bpt.scylla.utils.NumericUtils;
 import desmoj.core.simulator.Experiment;
 import desmoj.core.simulator.TimeInstant;
 

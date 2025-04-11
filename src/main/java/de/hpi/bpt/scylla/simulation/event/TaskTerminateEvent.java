@@ -12,30 +12,21 @@ import de.hpi.bpt.scylla.model.process.ProcessModel;
 import de.hpi.bpt.scylla.model.process.graph.exception.NodeNotFoundException;
 import de.hpi.bpt.scylla.model.process.node.TaskType;
 import de.hpi.bpt.scylla.plugin_type.simulation.event.TaskTerminateEventPluggable;
-import de.hpi.bpt.scylla.simulation.ProcessInstance;
-import de.hpi.bpt.scylla.simulation.ProcessSimulationComponents;
-import de.hpi.bpt.scylla.simulation.ResourceObject;
-import de.hpi.bpt.scylla.simulation.SimulationModel;
+import de.hpi.bpt.scylla.simulation.*;
 import de.hpi.bpt.scylla.simulation.utils.DateTimeUtils;
 import de.hpi.bpt.scylla.simulation.utils.SimulationUtils;
 import desmoj.core.simulator.Model;
 import desmoj.core.simulator.TimeInstant;
 import desmoj.core.simulator.TimeSpan;
 
-/**
- * DesmoJ event representing terminate transition of a BPMN task.
- * 
- * @author Tsun Yin Wong
- *
- */
 public class TaskTerminateEvent extends TaskEvent {
 
+    private Double customDuration = null;
+
     public TaskTerminateEvent(Model owner, String source, TimeInstant simulationTimeOfSource,
-            ProcessSimulationComponents desmojObjects, ProcessInstance processInstance, int nodeId) {
+                              ProcessSimulationComponents desmojObjects, ProcessInstance processInstance, int nodeId) {
         super(owner, source, simulationTimeOfSource, desmojObjects, processInstance, nodeId);
     }
-
-    private Double customDuration = null;
 
     public void setCustomDuration(Double duration) {
         this.customDuration = duration;
@@ -45,72 +36,32 @@ public class TaskTerminateEvent extends TaskEvent {
         return this.customDuration;
     }
 
-
     @Override
     public void eventRoutine(ProcessInstance processInstance) throws SuspendExecution {
         super.eventRoutine(processInstance);
         SimulationModel model = (SimulationModel) getModel();
         ProcessModel processModel = processInstance.getProcessModel();
-        // int processInstanceId = processInstance.getId();
-        
-      try {
-            ProcessModel subProcess = processModel.getSubProcesses().get(nodeId);
-            TaskType type = processModel.getTasks().get(nodeId);
 
-            String message = null;
-            if (subProcess != null) {
-                message = "End of Subprocess: " + displayName;
-            }
-            else if (type == TaskType.DEFAULT) {
-                message = "End of Default Task: " + displayName;
-            }
-            else if (type == TaskType.SERVICE) {
-                message = "End of Service Task: " + displayName;
-            }
-            else if (type == TaskType.SEND) {
-                message = "End of Send Task: " + displayName;
-            }
-            else if (type == TaskType.RECEIVE) {
-                message = "End of Receive Task: " + displayName;
-            }
-            else if (type == TaskType.USER) {
-                message = "End of User Task: " + displayName;
-            }
-            else if (type == TaskType.MANUAL) {
-                message = "End of Manual Task: " + displayName;
-            }
-            else if (type == TaskType.BUSINESS_RULE) {
-                message = "End of Business Rule: " + displayName;
-            }
-            else if (type == TaskType.SCRIPT) {
-                message = "End of Script Task: " + displayName;
-            }
-            else {
-                // TODO write to log because element not supported
-                SimulationUtils.abort(model, processInstance, nodeId, traceIsOn());
-                return;
-            }
+        try {
+            String message = getTaskEndMessage(processModel);
+            if (message == null) return;
+
             sendTraceNote(message);
 
-            // 1: check queues if there are any events waiting, schedule them first
-            // 2: schedule event for next node
-
+            // ✅ Rilascia risorse e gestisci code
             model.getResourceManager().releaseResourcesAndScheduleQueuedEvents(this);
 
-            // get next node(s)
+            // ✅ Ottieni nodo successivo
             Set<Integer> idsOfNextNodes = processModel.getIdsOfNextNodes(nodeId);
-            // start event must not have more than successor
             if (idsOfNextNodes.size() != 1) {
-                throw new ScyllaValidationException(
-                        "Task " + nodeId + " does not have 1 successor, but " + idsOfNextNodes.size() + ".");
+                throw new ScyllaValidationException("Task " + nodeId + " does not have exactly one successor.");
             }
+
             Integer nextNodeId = idsOfNextNodes.iterator().next();
+            List<ScyllaEvent> events = SimulationUtils.createEventsForNextNode(
+                    this, pSimComponents, processInstance, nextNodeId);
 
-            List<ScyllaEvent> events = SimulationUtils.createEventsForNextNode(this, pSimComponents, processInstance,
-                    nextNodeId);
-
-            // next event occurs immediately after start event
-            TimeSpan timeSpan = new TimeSpan(0);
+            TimeSpan timeSpan = new TimeSpan(0);  // immediatamente
 
             for (ScyllaEvent event : events) {
                 int index = getNewEventIndex();
@@ -118,55 +69,72 @@ public class TaskTerminateEvent extends TaskEvent {
                 timeSpanToNextEventMap.put(index, timeSpan);
             }
 
-            // unless current one is BPMN timer event with timerDuration
+            // ✅ Plugin terminate
             TaskTerminateEventPluggable.runPlugins(this, processInstance);
 
             scheduleNextEvents();
-        }
-        catch (NodeNotFoundException | ScyllaValidationException | ScyllaRuntimeException e) {
+
+        } catch (NodeNotFoundException | ScyllaValidationException | ScyllaRuntimeException e) {
             DebugLogger.error(e.getMessage());
             e.printStackTrace();
             SimulationUtils.abort(model, processInstance, nodeId, traceIsOn());
         }
     }
 
+    private String getTaskEndMessage(ProcessModel processModel) {
+        TaskType type = processModel.getTasks().get(nodeId);
+        ProcessModel subProcess = processModel.getSubProcesses().get(nodeId);
+
+        if (subProcess != null) {
+            return "End of Subprocess: " + displayName;
+        }
+        if (type != null) {
+            return "End of " + type.name() + " Task: " + displayName;
+        }
+
+        SimulationUtils.sendElementNotSupportedTraceNote((SimulationModel) getModel(), processModel, displayName, nodeId);
+        SimulationUtils.abort((SimulationModel) getModel(), null, nodeId, traceIsOn());
+        return null;
+    }
+
     @Override
     protected void addToLog(ProcessInstance processInstance) {
         long timestamp = Math.round(getModel().presentTime().getTimeRounded(DateTimeUtils.getReferenceTimeUnit()));
         String taskName = displayName;
-        Set<String> resources = new HashSet<String>();
+
+        Set<String> resources = new HashSet<>();
         Set<ResourceObject> resourceObjects = processInstance.getAssignedResources().get(source).getResourceObjects();
-
         for (ResourceObject res : resourceObjects) {
-            String resourceName = res.getResourceType() + "_" + res.getId();
-            resources.add(resourceName);
+            resources.add(res.getResourceType() + "_" + res.getId());
         }
-        System.out.println("📌 TerminateEvent: durata effettiva (customDuration) = " + customDuration);
 
-        ProcessNodeTransitionType transition = ProcessNodeTransitionType.TERMINATE;
+        System.out.printf("📌 [TaskTerminateEvent] Durata effettiva = %.3f sec | Task = %s%n",
+                customDuration != null ? customDuration : 0.0, taskName);
 
+        ProcessModel processModel = processInstance.getProcessModel();
         SimulationModel model = (SimulationModel) getModel();
 
-
-
-
         if (!alreadyCanceled(model)) {
-            ProcessModel processModel = processInstance.getProcessModel();
-            String processScopeNodeId = SimulationUtils.getProcessScopeNodeId(processModel, nodeId);
-
-            ProcessNodeInfo info = new ProcessNodeInfo(nodeId, processScopeNodeId, source, timestamp, taskName, resources,
-                    transition);
+            ProcessNodeInfo info = new ProcessNodeInfo(
+                    nodeId,
+                    SimulationUtils.getProcessScopeNodeId(processModel, nodeId),
+                    source,
+                    timestamp,
+                    taskName,
+                    resources,
+                    ProcessNodeTransitionType.TERMINATE
+            );
             model.addNodeInfo(processModel, processInstance, info);
         }
     }
 
-
-    private boolean alreadyCanceled(SimulationModel model){
+    private boolean alreadyCanceled(SimulationModel model) {
         Collection<Map<Integer, List<ProcessNodeInfo>>> allProcesses = model.getProcessNodeInfos().values();
-        for (Map<Integer, java.util	.List<ProcessNodeInfo>> process : allProcesses) {
+        for (Map<Integer, List<ProcessNodeInfo>> process : allProcesses) {
             List<ProcessNodeInfo> currentProcess = process.get(processInstance.getId());
             for (ProcessNodeInfo task : currentProcess) {
-                if (task.getId().equals(nodeId) && task.getTransition().equals(ProcessNodeTransitionType.CANCEL)){
+                if (task.getId().equals(nodeId) &&
+                        task.getTransition().equals(ProcessNodeTransitionType.CANCEL)) {
                     return true;
                 }
             }

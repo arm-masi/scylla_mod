@@ -3,20 +3,24 @@ package de.hpi.bpt.scylla.model.global.resource;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 import de.hpi.bpt.scylla.simulation.utils.DateTimeUtils;
 
 /**
  * Describes the instance of a dynamic resource.
+ * Extended with properties for custom attributes.
  * 
  * @author Tsun Yin Wong
  */
 public class DynamicResourceInstance {
 
-    List<TimetableItem> timetable = null;
-    double cost;
-    TimeUnit timeUnit;
+    private List<TimetableItem> timetable = null;
+    private double cost;
+    private TimeUnit timeUnit;
+    private Map<String, String> properties = new HashMap<>(); // ✅ Aggiunto
 
     /**
      * Constructor.
@@ -33,9 +37,7 @@ public class DynamicResourceInstance {
 
     /**
      * null = any time
-     * 
      * empty list = no time
-     * 
      * list with timetable items = see items
      * 
      * @return list of time table items
@@ -45,8 +47,8 @@ public class DynamicResourceInstance {
     }
 
     public void setTimetable(List<TimetableItem> timetable) {
-        Comparator<TimetableItem> comparatorByWeekdayFromAndBeginTimeAsc = DateTimeUtils
-                .getComparatorByWeekdayFromAndBeginTimeAsc();
+        Comparator<TimetableItem> comparatorByWeekdayFromAndBeginTimeAsc = 
+            DateTimeUtils.getComparatorByWeekdayFromAndBeginTimeAsc();
         Collections.sort(timetable, comparatorByWeekdayFromAndBeginTimeAsc);
         this.timetable = timetable;
     }
@@ -57,5 +59,18 @@ public class DynamicResourceInstance {
 
     public TimeUnit getTimeUnit() {
         return timeUnit;
+    }
+
+    // ✅ Metodi aggiuntivi per le proprietà personalizzate
+    public void setProperty(String key, String value) {
+        properties.put(key, value);
+    }
+
+    public String getProperty(String key) {
+        return properties.getOrDefault(key, "0");
+    }
+
+    public Map<String, String> getProperties() {
+        return properties;
     }
 }
