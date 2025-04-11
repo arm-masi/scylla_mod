@@ -4,12 +4,24 @@
                           id="clientserver-global">
 
   <bsim:resourceData>
-    <bsim:dynamicResource id="client" defaultQuantity="50" defaultCost="800.0" defaultTimeUnit="SECONDS">
-      <bsim:instance name="client"/>
+    <bsim:dynamicResource id="client" defaultQuantity="50" defaultCost="2000.0" defaultTimeUnit="SECONDS">
+      <bsim:instance name="client"
+                     cpuSpeed="2000"
+                     ram="4096"
+                     ioRead="300"
+                     ioWrite="200"
+                     txSpeed="15"
+                     rxSpeed="10"/>
     </bsim:dynamicResource>
 
-    <bsim:dynamicResource id="server" defaultQuantity="1" defaultCost="5000.0" defaultTimeUnit="SECONDS">
-      <bsim:instance name="server"/>
+    <bsim:dynamicResource id="server" defaultQuantity="1" defaultCost="4000.0" defaultTimeUnit="SECONDS">
+      <bsim:instance name="server"
+                     cpuSpeed="4000"
+                     ram="8192"
+                     ioRead="800"
+                     ioWrite="600"
+                     txSpeed="100"
+                     rxSpeed="100"/>
     </bsim:dynamicResource>
   </bsim:resourceData>
 

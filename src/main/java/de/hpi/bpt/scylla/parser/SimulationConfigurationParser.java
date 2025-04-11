@@ -4,6 +4,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import org.jdom2.Attribute;
 import org.jdom2.Element;
 import org.jdom2.Namespace;
 
@@ -94,15 +95,32 @@ public class SimulationConfigurationParser extends Parser<SimulationConfiguratio
                         String resId = res.getAttributeValue("id");
                         int amount = Integer.parseInt(res.getAttributeValue("amount"));
                         Map<String, String> assignDef = new HashMap<>();
+
+                        for (Attribute attr : res.getAttributes()) {
+                            String key = attr.getName();
+                            String value = attr.getValue();
+                            if (!key.equals("id") && !key.equals("amount")) {
+                                assignDef.put(key, value);
+                            }
+                        }
+
                         Element def = res.getChild("assignmentDefinition", simNamespace);
                         if (def != null) {
                             for (Element e : def.getChildren()) {
                                 assignDef.put(e.getName(), e.getText());
                             }
                         }
+
                         refs.add(new ResourceReference(resId, amount, assignDef));
                     }
                     resourceReferences.put(nodeId, refs);
+                }
+
+                // ✅ Importa attributi personalizzati dal nodo
+                for (Element attr : el.getChildren("attribute", simNamespace)) {
+                    String key = attr.getAttributeValue("key");
+                    String value = attr.getAttributeValue("value");
+                    processModel.getNodeAttributes().computeIfAbsent(nodeId, k -> new HashMap<>()).put(key, value);
                 }
 
                 if (name.equals("subProcess")) {

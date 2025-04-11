@@ -78,6 +78,14 @@ public class QueueManager {
                     TimeUnit timeUnit = instance.getTimeUnit();
                     List<TimetableItem> timetable = instance.getTimetable();
                     ResourceObject resObject = new ResourceObject(resourceType, resourceInstanceName, cost, timeUnit, timetable);
+                    // ✅ Recupera e assegna le proprietà definite nel .global.xml
+                    Map<String, String> props = instance.getProperties();
+                    if (props != null) {
+                        for (Map.Entry<String, String> entry : props.entrySet()) {
+                            resObject.setProperty(entry.getKey(), entry.getValue());
+                        }
+                    }
+
                     resQueue.add(resObject);
 
                     boolean availableAtStart = resObject.isAvailable(model.getStartDateTime());

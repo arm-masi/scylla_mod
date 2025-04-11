@@ -3,12 +3,7 @@ package de.hpi.bpt.scylla.parser;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import org.jdom2.Element;
@@ -18,20 +13,11 @@ import de.hpi.bpt.scylla.SimulationManager;
 import de.hpi.bpt.scylla.exception.ScyllaValidationException;
 import de.hpi.bpt.scylla.logger.DebugLogger;
 import de.hpi.bpt.scylla.model.global.GlobalConfiguration;
-import de.hpi.bpt.scylla.model.global.resource.DynamicResource;
-import de.hpi.bpt.scylla.model.global.resource.DynamicResourceInstance;
-import de.hpi.bpt.scylla.model.global.resource.Resource;
-import de.hpi.bpt.scylla.model.global.resource.TimetableItem;
+import de.hpi.bpt.scylla.model.global.resource.*;
 import de.hpi.bpt.scylla.plugin_loader.PluginLoader;
 import de.hpi.bpt.scylla.plugin_type.parser.EventOrderType;
 import de.hpi.bpt.scylla.simulation.utils.DateTimeUtils;
 
-/**
- * Parses all simulation parameters which are necessary for conducting the simulation, across all involved business
- * processes.
- * 
- * @author Tsun Yin Wong
- */
 public class GlobalConfigurationParser extends Parser<GlobalConfiguration> {
 
     public GlobalConfigurationParser(SimulationManager simulationEnvironment) {
@@ -40,12 +26,10 @@ public class GlobalConfigurationParser extends Parser<GlobalConfiguration> {
 
     @Override
     public GlobalConfiguration parse(Element rootElement) throws ScyllaValidationException {
-    	System.out.println(rootElement.getNamespace());
+        System.out.println(rootElement.getNamespace());
 
         Iterator<EventOrderType> eventOrderTypesIterator = PluginLoader.dGetPlugins(EventOrderType.class);
-        //ServiceLoader.load(EventOrderType.class).iterator();
-        //Get all event order type plugins and store them in eventOrderTypes
-        Map<String, EventOrderType> eventOrderTypes = new HashMap<String, EventOrderType>();
+        Map<String, EventOrderType> eventOrderTypes = new HashMap<>();
         while (eventOrderTypesIterator.hasNext()) {
             EventOrderType eot = eventOrderTypesIterator.next();
             eventOrderTypes.put(eot.getName(), eot);
@@ -57,12 +41,11 @@ public class GlobalConfigurationParser extends Parser<GlobalConfiguration> {
         String globalConfId = rootElement.getAttributeValue("id");
         Long randomSeed = null;
         ZoneId zoneId = ZoneId.of("UTC");
-        Map<String, Resource> resources = new HashMap<String, Resource>();
-        List<EventOrderType> resourceAssignmentOrder = new ArrayList<EventOrderType>();
+        Map<String, Resource> resources = new HashMap<>();
+        List<EventOrderType> resourceAssignmentOrder = new ArrayList<>();
 
-        // resourceId:[instanceName:timetableId]
-        Map<String, Map<String, String>> resourcesToTimetableIds = new HashMap<String, Map<String, String>>();
-        Map<String, List<TimetableItem>> timetables = new HashMap<String, List<TimetableItem>>();
+        Map<String, Map<String, String>> resourcesToTimetableIds = new HashMap<>();
+        Map<String, List<TimetableItem>> timetables = new HashMap<>();
 
         for (Element el : globalConfigurationElements) {
             String elementName = el.getName();
@@ -71,182 +54,123 @@ public class GlobalConfigurationParser extends Parser<GlobalConfiguration> {
                     continue;
                 }
                 if (elementName.equals("resourceAssignmentOrder")) {
-                    String resourceAssignmentOrderString = el.getText();
-                    String[] orderTypeArray = resourceAssignmentOrderString.split(",");
+                    String[] orderTypeArray = el.getText().split(",");
                     for (String orderTypeName : orderTypeArray) {
-                        if (orderTypeName.isEmpty()) {
-                            continue;
+                        if (!orderTypeName.isEmpty()) {
+                            EventOrderType eot = eventOrderTypes.get(orderTypeName);
+                            if (eot == null) {
+                                throw new ScyllaValidationException("Unknown event order type: " + orderTypeName);
+                            }
+                            resourceAssignmentOrder.add(eot);
                         }
-                        EventOrderType eventOrderType = eventOrderTypes.get(orderTypeName);
-                        if (eventOrderType == null) {
-                            throw new ScyllaValidationException(
-                                    "Event order type " + orderTypeName + " for resource assignment is unknown.");
-                        }
-                        resourceAssignmentOrder.add(eventOrderType);
                     }
-                }
-                else if (elementName.equals("randomSeed")) {
+                } else if (elementName.equals("randomSeed")) {
                     randomSeed = Long.parseLong(el.getText());
-                }
-                else if (elementName.equals("zoneOffset")) {
+                } else if (elementName.equals("zoneOffset")) {
                     zoneId = ZoneId.of("GMT" + el.getText());
-                }
-                else if (elementName.equals("resourceData")) {
-                    List<Element> rDataElements = el.getChildren();
-                    for (Element elem : rDataElements) {
-                        String resourceId = elem.getAttributeValue("id");
-                        String rDataElementName = elem.getName();
-                        if (rDataElementName.equals("dynamicResource")) {
-                            String resourceName = elem.getAttributeValue("name");
-                            Integer defaultQuantity = Integer.valueOf(elem.getAttributeValue("defaultQuantity"));
-                            Double defaultCost = Double.valueOf(elem.getAttributeValue("defaultCost"));
-                            TimeUnit defaultTimeUnit = TimeUnit.valueOf(elem.getAttributeValue("defaultTimeUnit"));
-                            DynamicResource dynamicResource = new DynamicResource(resourceId, resourceName,
-                                    defaultQuantity, defaultCost, defaultTimeUnit);
+                } else if (elementName.equals("resourceData")) {
+                    for (Element resourceElem : el.getChildren()) {
+                        String resourceId = resourceElem.getAttributeValue("id");
+                        String name = resourceElem.getAttributeValue("name");
+                        int quantity = Integer.parseInt(resourceElem.getAttributeValue("defaultQuantity"));
+                        double defaultCost = Double.parseDouble(resourceElem.getAttributeValue("defaultCost"));
+                        TimeUnit timeUnit = TimeUnit.valueOf(resourceElem.getAttributeValue("defaultTimeUnit"));
+                        String defaultTimetableId = resourceElem.getAttributeValue("defaultTimetableId");
 
-                            String defaultTimetableId = elem.getAttributeValue("defaultTimetableId");
+                        DynamicResource resource = new DynamicResource(resourceId, name, quantity, defaultCost, timeUnit);
+                        Map<String, DynamicResourceInstance> instances = resource.getResourceInstances();
 
-                            if (resourcesToTimetableIds.containsKey(resourceId)) {
-                                throw new ScyllaValidationException("Multiple resource definitions: " + resourceId);
-                            }
-                            resourcesToTimetableIds.put(resourceId, new HashMap<String, String>());
-
-                            Map<String, DynamicResourceInstance> resourceInstances = dynamicResource
-                                    .getResourceInstances();
-                            List<Element> instanceElements = elem.getChildren("instance", bsimNamespace);
-
-                            // fill up list of resource instances if not explicitly defined
-                            if (instanceElements.size() > defaultQuantity) {
-                                throw new ScyllaValidationException(
-                                        "Too many instances defined for resource " + resourceId);
-                            }
-                            int numberOfDefaultInstances = defaultQuantity - instanceElements.size();
-                            for (int i = 0; i < numberOfDefaultInstances; i++) {
-                                String name = "#" + i;
-                                DynamicResourceInstance instance = new DynamicResourceInstance(defaultCost,
-                                        defaultTimeUnit);
-                                resourceInstances.put(name, instance);
-
-                                if (defaultTimetableId != null) {
-                                    resourcesToTimetableIds.get(resourceId).put(name, defaultTimetableId);
-                                }
-                            }
-
-                            // parse defined resource instances
-                            for (Element element : instanceElements) {
-                                String name = element.getAttributeValue("name");
-                                if (name == null) {
-                                    throw new ScyllaValidationException(
-                                            "Resource instance of type " + resourceId + " does not have name.");
-                                }
-                                Double cost;
-                                if (element.getAttributeValue("cost") == null) {
-                                    cost = defaultCost;
-                                }
-                                else {
-                                    cost = Double.valueOf(element.getAttributeValue("cost"));
-                                }
-                                TimeUnit timeUnit;
-                                if (element.getAttributeValue("timeUnit") == null) {
-                                    timeUnit = defaultTimeUnit;
-                                }
-                                else {
-                                    timeUnit = TimeUnit.valueOf(element.getAttributeValue("timeUnit"));
-                                }
-                                DynamicResourceInstance instance = new DynamicResourceInstance(cost, timeUnit);
-                                if (resourceInstances.containsKey(name)) {
-                                    throw new ScyllaValidationException("Duplicate resource instance: " + name);
-                                }
-                                resourceInstances.put(name, instance);
-
-                                String timetableId = element.getAttributeValue("timetableId");
-                                if (timetableId != null) {
-                                    resourcesToTimetableIds.get(resourceId).put(name, timetableId);
-                                } else if (defaultTimetableId != null) {
-                                    resourcesToTimetableIds.get(resourceId).put(name, defaultTimetableId);
-                                }
-                            }
-
-                            resources.put(resourceId, dynamicResource);
+                        if (!resourcesToTimetableIds.containsKey(resourceId)) {
+                            resourcesToTimetableIds.put(resourceId, new HashMap<>());
                         }
-                        else {
-                            DebugLogger.log("Element " + elem.getName()
-                                    + " of resource data is expected to be known, but not supported.");
+
+                        List<Element> instanceElements = resourceElem.getChildren("instance", bsimNamespace);
+
+                        int autoInstances = quantity - instanceElements.size();
+                        for (int i = 0; i < autoInstances; i++) {
+                            String instName = "#" + i;
+                            DynamicResourceInstance instance = new DynamicResourceInstance(defaultCost, timeUnit);
+                            instances.put(instName, instance);
+                            if (defaultTimetableId != null) {
+                                resourcesToTimetableIds.get(resourceId).put(instName, defaultTimetableId);
+                            }
                         }
+
+                        for (Element instEl : instanceElements) {
+                            String instName = instEl.getAttributeValue("name");
+                            double cost = instEl.getAttributeValue("cost") != null ? Double.parseDouble(instEl.getAttributeValue("cost")) : defaultCost;
+                            TimeUnit unit = instEl.getAttributeValue("timeUnit") != null ? TimeUnit.valueOf(instEl.getAttributeValue("timeUnit")) : timeUnit;
+                            DynamicResourceInstance instance = new DynamicResourceInstance(cost, unit);
+
+                            // ✅ Popola le proprietà estese dalla configurazione
+                            instEl.getAttributes().forEach(attr -> {
+                                String key = attr.getName();
+                                String value = attr.getValue();
+                                if (!List.of("name", "cost", "timeUnit", "timetableId").contains(key)) {
+                                    instance.setProperty(key, value);
+                                }
+                            });
+
+                            instances.put(instName, instance);
+
+                            String ttId = instEl.getAttributeValue("timetableId");
+                            if (ttId != null) {
+                                resourcesToTimetableIds.get(resourceId).put(instName, ttId);
+                            } else if (defaultTimetableId != null) {
+                                resourcesToTimetableIds.get(resourceId).put(instName, defaultTimetableId);
+                            }
+                        }
+                        resources.put(resourceId, resource);
+                    }
+                } else if (elementName.equals("timetables")) {
+                    for (Element tElement : el.getChildren("timetable", bsimNamespace)) {
+                        String tId = tElement.getAttributeValue("id");
+                        List<TimetableItem> items = new ArrayList<>();
+                        for (Element tItem : tElement.getChildren("timetableItem", bsimNamespace)) {
+                            DayOfWeek from = DayOfWeek.valueOf(tItem.getAttributeValue("from"));
+                            DayOfWeek to = DayOfWeek.valueOf(tItem.getAttributeValue("to"));
+                            LocalTime begin = LocalTime.parse(tItem.getAttributeValue("beginTime"));
+                            LocalTime end = LocalTime.parse(tItem.getAttributeValue("endTime"));
+                            if (from.compareTo(to) > 0) {
+                                items.add(new TimetableItem(from, DayOfWeek.SUNDAY, begin, LocalTime.MAX));
+                                items.add(new TimetableItem(DayOfWeek.MONDAY, to, LocalTime.MIN, end));
+                            } else {
+                                items.add(new TimetableItem(from, to, begin, end));
+                            }
+                        }
+                        timetables.put(tId, items);
                     }
                 }
-                else if (elementName.equals("timetables")) {
-                    List<Element> tElements = el.getChildren("timetable", bsimNamespace);
-                    for (Element tElement : tElements) {
-                        String timetableId = tElement.getAttributeValue("id");
-                        List<TimetableItem> items = new ArrayList<TimetableItem>();
-                        List<Element> tItemElements = tElement.getChildren("timetableItem", bsimNamespace);
-                        for (Element tItemElement : tItemElements) {
-                            DayOfWeek weekdayFrom = DayOfWeek.valueOf(tItemElement.getAttributeValue("from"));
-                            DayOfWeek weekdayTo = DayOfWeek.valueOf(tItemElement.getAttributeValue("to"));
-                            LocalTime beginTime = LocalTime.parse(tItemElement.getAttributeValue("beginTime"));
-                            LocalTime endTime = LocalTime.parse(tItemElement.getAttributeValue("endTime"));
-                            // TODO check for overlapping timetable items and handle them
-                            if (DateTimeUtils.compareWeekdayTime(weekdayFrom, beginTime, weekdayTo, endTime) != 0) {
-                                if (weekdayFrom.compareTo(weekdayTo) > 0) { // e.g. FRIDAY to MONDAY
-                                    TimetableItem item = new TimetableItem(weekdayFrom, DayOfWeek.SUNDAY, beginTime,
-                                            LocalTime.MAX);
-                                    items.add(item);
-                                    item = new TimetableItem(DayOfWeek.MONDAY, weekdayTo, LocalTime.MIN, endTime);
-                                    items.add(item);
-                                }
-                                else {
-                                    TimetableItem item = new TimetableItem(weekdayFrom, weekdayTo, beginTime, endTime);
-                                    items.add(item);
-                                }
-                            }
-                        }
-                        timetables.put(timetableId, items);
-                    }
-                }
-            }
-            else {
+            } else {
                 DebugLogger.log("Element " + el.getName() + " of global configuration is not supported.");
             }
-
         }
 
-        // match timetables (if any available) and resource data (if any available)s
-        for (String resourceId : resourcesToTimetableIds.keySet()) {
-            Map<String, String> resourceInstanceIdToTimetableIds = resourcesToTimetableIds.get(resourceId);
-            for (String resourceInstanceName : resourceInstanceIdToTimetableIds.keySet()) {
-                String timetableId = resourceInstanceIdToTimetableIds.get(resourceInstanceName);
-                if (!timetables.containsKey(timetableId)) {
-                    DebugLogger.log("Timetable " + timetableId + " not found.");
+        for (String resId : resourcesToTimetableIds.keySet()) {
+            for (Map.Entry<String, String> entry : resourcesToTimetableIds.get(resId).entrySet()) {
+                String instName = entry.getKey();
+                String ttId = entry.getValue();
+                if (!timetables.containsKey(ttId)) {
+                    DebugLogger.log("Timetable " + ttId + " not found.");
+                    continue;
                 }
-                List<TimetableItem> timetable = timetables.get(timetableId);
-                Resource resource = resources.get(resourceId);
-                if (resource instanceof DynamicResource) {
-                    DynamicResource dResource = (DynamicResource) resource;
-                    dResource.getResourceInstances().get(resourceInstanceName).setTimetable(timetable);
-                }
+                ((DynamicResource) resources.get(resId)).getResourceInstances().get(instName).setTimetable(timetables.get(ttId));
             }
         }
+
         if (resources.isEmpty()) {
-            //throw new ScyllaValidationException("No resource data definitions in file.");
-        	System.err.println("[Warning:] No resource data definitions in file.");
+            System.err.println("[Warning:] No resource data definitions in file.");
         }
         if (randomSeed == null) {
-            Random random = new Random();
-            randomSeed = random.nextLong();
+            randomSeed = new Random().nextLong();
         }
 
-        DebugLogger
-                .log("Random seed for whole simulation (if not overriden by simulation configuration): " + randomSeed);
+        DebugLogger.log("Random seed for whole simulation: " + randomSeed);
 
-        GlobalConfiguration globalConfiguration = new GlobalConfiguration(globalConfId, zoneId, randomSeed, resources,
-                resourceAssignmentOrder);
-        return globalConfiguration;
+        return new GlobalConfiguration(globalConfId, zoneId, randomSeed, resources, resourceAssignmentOrder);
     }
 
     private boolean isKnownElement(String name) {
-        return name.equals("resourceAssignmentOrder") || name.equals("randomSeed") || name.equals("zoneOffset")
-                || name.equals("resourceData") || name.equals("timetables");
+        return List.of("resourceAssignmentOrder", "randomSeed", "zoneOffset", "resourceData", "timetables").contains(name);
     }
-
 }

@@ -18,68 +18,72 @@ public class ResourceCostBasedTaskDurationPlugin extends TaskBeginEventPluggable
     }
 
     @Override
-    public void eventRoutine(TaskBeginEvent event, ProcessInstance processInstance) {
-        try {
-            int nodeId = event.getNodeId();
-            String source = event.getSource();
-            ProcessModel model = processInstance.getProcessModel();
-            Map<String, String> attributes = model.getNodeAttributes().get(nodeId);
+public void eventRoutine(TaskBeginEvent event, ProcessInstance processInstance) {
+    try {
+        int nodeId = event.getNodeId();
+        String source = event.getSource();
+        ProcessModel model = processInstance.getProcessModel();
+        Map<String, String> attributes = model.getNodeAttributes().get(nodeId);
 
-            double numInstructions = parseDouble(attributes, "numInstructions", 1000.0);
-            double ramRequired = parseDouble(attributes, "ram", 0.0);
-            double readOps = parseDouble(attributes, "readOps", 0.0);
-            double writeOps = parseDouble(attributes, "writeOps", 0.0);
-            double txMB = parseDouble(attributes, "txMB", 0.0);
-            double rxMB = parseDouble(attributes, "rxMB", 0.0);
+        double numInstructions = parseDouble(attributes, "numInstructions", 1000.0);
+        double ramRequired = parseDouble(attributes, "ram", 0.0);
+        double readOps = parseDouble(attributes, "readOps", 0.0);
+        double writeOps = parseDouble(attributes, "writeOps", 0.0);
+        double txMB = parseDouble(attributes, "txMB", 0.0);
+        double rxMB = parseDouble(attributes, "rxMB", 0.0);
 
-            ResourceObjectTuple tuple = processInstance.getAssignedResources().get(source);
-            ResourceObject res = (tuple != null && !tuple.getResourceObjects().isEmpty())
-                    ? tuple.getResourceObjects().iterator().next()
-                    : null;
+        ResourceObjectTuple tuple = processInstance.getAssignedResources().get(source);
+        ResourceObject res = (tuple != null && !tuple.getResourceObjects().isEmpty())
+                ? tuple.getResourceObjects().iterator().next()
+                : null;
 
-            double cpuSpeed = parseAttribute(res, "cpuSpeed", 1000.0);   // instr/sec
-            double ramSpeed = parseAttribute(res, "ram", 1.0);         // MB/sec
-            double ioReadSpeed = parseAttribute(res, "ioRead", 1.0);   // ops/sec
-            double ioWriteSpeed = parseAttribute(res, "ioWrite", 1.0); // ops/sec
-            double txSpeed = parseAttribute(res, "txSpeed", 1.0);       // MB/sec
-            double rxSpeed = parseAttribute(res, "rxSpeed", 1.0);       // MB/sec
+        // ✅ DEBUG delle proprietà prima di accedere
+        //debugResourceProperties(res);
 
-            // Usa NumericUtils per calcoli sicuri
-            double timeCpu = NumericUtils.safeDivide(numInstructions, cpuSpeed);
-            double timeRam = NumericUtils.safeDivide(ramRequired, ramSpeed);
-            double timeIORead = NumericUtils.safeDivide(readOps, ioReadSpeed);
-            double timeIOWrite = NumericUtils.safeDivide(writeOps, ioWriteSpeed);
-            double timeTx = NumericUtils.safeDivide(txMB, txSpeed);
-            double timeRx = NumericUtils.safeDivide(rxMB, rxSpeed);
+        double cpuSpeed = parseAttribute(res, "cpuSpeed", 1000.0);   // instr/sec
+        double ramSpeed = parseAttribute(res, "ram", 1.0);         // MB/sec
+        double ioReadSpeed = parseAttribute(res, "ioRead", 1.0);   // ops/sec
+        double ioWriteSpeed = parseAttribute(res, "ioWrite", 1.0); // ops/sec
+        double txSpeed = parseAttribute(res, "txSpeed", 1.0);       // MB/sec
+        double rxSpeed = parseAttribute(res, "rxSpeed", 1.0);       // MB/sec
 
-            double totalTime = timeCpu + timeRam + timeIORead + timeIOWrite + timeTx + timeRx;
-            totalTime = Math.max(totalTime, 1.0); // garantisce che non sia < 1 sec
+        double timeCpu = NumericUtils.safeDivide(numInstructions, cpuSpeed);
+        double timeRam = NumericUtils.safeDivide(ramRequired, ramSpeed);
+        double timeIORead = NumericUtils.safeDivide(readOps, ioReadSpeed);
+        double timeIOWrite = NumericUtils.safeDivide(writeOps, ioWriteSpeed);
+        double timeTx = NumericUtils.safeDivide(txMB, txSpeed);
+        double timeRx = NumericUtils.safeDivide(rxMB, rxSpeed);
 
-            System.out.printf("\u2705 [resourceCost] nodeId=%d | CPU: %.2f | RAM: %.2f | IO: %.2f | NET: %.2f | TOTAL: %.2f sec%n",
-                    nodeId, timeCpu, timeRam, timeIORead + timeIOWrite, timeTx + timeRx, totalTime);
+        double totalTime = timeCpu + timeRam + timeIORead + timeIOWrite + timeTx + timeRx;
+        totalTime = Math.max(totalTime, 1.0);
 
-            if (res != null) {
-                System.out.printf("\uD83D\uDD0D [resourceCost] Resource %s: cpu=%.2f ram=%.2f ioR=%.2f ioW=%.2f tx=%.2f rx=%.2f%n",
-                        res.getId(), cpuSpeed, ramSpeed, ioReadSpeed, ioWriteSpeed, txSpeed, rxSpeed);
-            }
-            System.out.println("[resourceCost] ➤ Esecuzione plugin per nodo " + nodeId);
+        System.out.printf("\u2705 [resourceCost] nodeId=%d | CPU: %.2f | RAM: %.2f | IO: %.2f | NET: %.2f | TOTAL: %.2f sec%n",
+                nodeId, timeCpu, timeRam, timeIORead + timeIOWrite, timeTx + timeRx, totalTime);
 
-            if (res == null) {
-                System.err.println("❌ [resourceCost] Nessuna risorsa assegnata a " + source);
-            } else {
-                System.out.println("✅ [resourceCost] Risorsa assegnata: " + res.getId());
-                System.out.println("CPU: " + cpuSpeed + " | RAM: " + ramSpeed + " | IOread: " + ioReadSpeed + " | IOWrite: " + ioWriteSpeed);
-            }
-
-            System.out.println("[resourceCost] ➤ Totale durata calcolata = " + totalTime);
-
-            event.setCustomDuration(totalTime);
-
-        } catch (Exception e) {
-            System.err.println("\u274C [resourceCost] Errore nel calcolo durata:");
-            e.printStackTrace();
+        if (res != null) {
+            System.out.printf("\uD83D\uDD0D [resourceCost] Resource %s: cpu=%.2f ram=%.2f ioR=%.2f ioW=%.2f tx=%.2f rx=%.2f%n",
+                    res.getId(), cpuSpeed, ramSpeed, ioReadSpeed, ioWriteSpeed, txSpeed, rxSpeed);
         }
+
+        System.out.println("[resourceCost] ➤ Esecuzione plugin per nodo " + nodeId);
+
+        if (res == null) {
+            System.err.println("❌ [resourceCost] Nessuna risorsa assegnata a " + source);
+        } else {
+            System.out.println("✅ [resourceCost] Risorsa assegnata: " + res.getId());
+            System.out.println("CPU: " + cpuSpeed + " | RAM: " + ramSpeed + " | IOread: " + ioReadSpeed + " | IOWrite: " + ioWriteSpeed);
+        }
+
+        System.out.println("[resourceCost] ➤ Totale durata calcolata = " + totalTime);
+
+        event.setCustomDuration(totalTime);
+
+    } catch (Exception e) {
+        System.err.println("\u274C [resourceCost] Errore nel calcolo durata:");
+        e.printStackTrace();
     }
+}
+
 
     private double parseDouble(Map<String, String> attrs, String key, double defaultValue) {
         if (attrs != null && attrs.containsKey(key)) {
